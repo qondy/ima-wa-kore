@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#27ae60">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>いまはこれ</title>
+  <meta name="description" content="選択肢が多くて何に集中すればいいか迷うときに、1週間〜1か月の期間を区切って集中することを1〜3つに絞り、期間の終わりに見直すアプリ。">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+  <meta property="og:title" content="いまはこれ">
+  <meta property="og:description" content="全部じゃなく、いまはこれ。期間を区切って、集中することを選び直す。">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://ima-wa-kore.vercel.app/ogp.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://ima-wa-kore.vercel.app/ogp.png">
+</head>
+<body>
+
+  <!-- ログイン画面 -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <span class="login-card__logo"><svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 24 V12 H24"/><path d="M40 12 H52 V24"/><path d="M52 40 V52 H40"/><path d="M24 52 H12 V40"/><circle cx="32" cy="32" r="9"/><circle cx="32" cy="32" r="2.4" fill="currentColor" stroke="none"/></svg></span>
+      <h1 class="login-card__title">いまはこれ</h1>
+      <p class="login-card__tagline">全部じゃなく、いまはこれ。<br>期間を区切って、集中することを選び直す。</p>
+      <button id="btn-google-login" class="google-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Googleでログイン
+      </button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header class="app-header">
+      <span class="app-header__brand"><svg width="28" height="28" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-7px"><path d="M12 24 V12 H24"/><path d="M40 12 H52 V24"/><path d="M52 40 V52 H40"/><path d="M24 52 H12 V40"/><circle cx="32" cy="32" r="9"/><circle cx="32" cy="32" r="2.4" fill="currentColor" stroke="none"/></svg> いまはこれ</span>
+      <nav class="app-header__nav">
+        <a href="about.html" class="app-header__about-link">アプリについて</a>
+        <div id="user-info" class="app-header__user hidden">
+          <img id="user-avatar" class="app-header__avatar" src="" alt="" />
+          <span id="user-name" class="app-header__name"></span>
+          <button id="btn-logout" class="btn btn--ghost btn--sm">ログアウト</button>
+        </div>
+      </nav>
+    </header>
+
+    <div class="tabs-bar">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tabs__btn is-active" role="tab" data-tab="now" aria-selected="true">いま</button>
+        <button type="button" class="tabs__btn" role="tab" data-tab="pool" aria-selected="false">候補<span class="tabs__count" id="count-pool"></span></button>
+        <button type="button" class="tabs__btn" role="tab" data-tab="history" aria-selected="false">見直し履歴</button>
+      </div>
+    </div>
+
+    <main class="app-main">
+
+      <!-- いま -->
+      <section class="panel" data-panel="now">
+        <div class="today-head">
+          <p class="today-head__date" id="today-date"></p>
+          <h2 class="today-head__title">いまはこれに集中</h2>
+        </div>
+        <div id="now-content"></div>
+      </section>
+
+      <!-- 候補 -->
+      <section class="panel hidden" data-panel="pool">
+        <div class="section__head">
+          <h2 class="section__title">気になっていること</h2>
+          <p class="section__desc">やりたいこと・やらなきゃいけないことを、全部ここに出しておきましょう。5つの観点で点数をつけると、集中先を選びやすくなります。</p>
+        </div>
+        <button type="button" id="btn-add-inline" class="add-inline">＋ 候補を書き出す</button>
+        <div class="filter-chips" id="sort-chips" role="radiogroup"></div>
+        <div id="pool-list" class="card-list"></div>
+
+        <div class="section section--sub">
+          <div class="section__head">
+            <h3 class="section__title">いまはやらない</h3>
+            <p class="section__desc">保留にしたことです。忘れたわけではなく、いまは手放しているだけ。次の期間でまた選べます。</p>
+          </div>
+          <div id="hold-list" class="card-list"></div>
+        </div>
+
+        <div class="section section--sub">
+          <div class="section__head">
+            <h3 class="section__title">やめたこと</h3>
+            <p class="section__desc">見直しで「やめる」と決めたことです。</p>
+          </div>
+          <div id="dropped-list" class="card-list"></div>
+        </div>
+      </section>
+
+      <!-- 見直し履歴 -->
+      <section class="panel hidden" data-panel="history">
+        <div class="section__head">
+          <h2 class="section__title">見直し履歴</h2>
+          <p class="section__desc">これまで何に集中して、どうだったか。迷ったときの判断材料になります。</p>
+        </div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-card__value" id="stat-periods">0</div><div class="stat-card__label">見直した回数</div></div>
+          <div class="stat-card"><div class="stat-card__value" id="stat-focus">0</div><div class="stat-card__label">集中したこと</div></div>
+          <div class="stat-card"><div class="stat-card__value" id="stat-rate">-</div><div class="stat-card__label">平均の手をつけた率</div></div>
+        </div>
+        <div id="history-list" class="card-list"></div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <p>© 2026 Yuji Nakamura. All rights reserved.</p>
+      <p><a href="https://apps.yuji-nakamura.com/" target="_blank" rel="noopener">他のアプリを見る →</a></p>
+    </footer>
+
+    <a href="about.html" class="about-btn"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="32" cy="32" r="20"/><circle cx="32" cy="22" r="1.5" fill="currentColor" stroke="none"/><line x1="32" y1="30" x2="32" y2="44"/></svg> アプリについて</a>
+    <button type="button" id="btn-fab" class="fab" aria-label="候補を書き出す"><svg width="24" height="24" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" aria-hidden="true"><path d="M32 12 V52"/><path d="M12 32 H52"/></svg></button>
+    <button id="feedback-btn" class="feedback-btn" aria-label="ご意見・ご要望"><svg width="22" height="22" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-6px"><rect x="8" y="14" width="48" height="30" rx="8"/><path d="M22 44 L14 54 V44"/></svg> ご意見</button>
+  </div>
+
+  <!-- 候補の登録・編集 -->
+  <div id="option-modal-overlay" class="dialog-overlay">
+    <form id="option-form" class="modal">
+      <div class="modal__head">
+        <div class="modal__title" id="option-modal-title">候補を書き出す</div>
+        <button type="button" id="btn-option-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-title">気になっていること</label>
+        <input type="text" id="input-title" maxlength="40" placeholder="例：資格の勉強" required />
+      </div>
+      <details id="hint-box" class="hint-box">
+        <summary>思いつかないときのヒント</summary>
+        <div id="hint-chips" class="hint-box__chips"></div>
+      </details>
+      <div class="field">
+        <span class="field__label">カテゴリ</span>
+        <div id="category-chips" class="filter-chips filter-chips--tight" role="radiogroup"></div>
+      </div>
+      <div class="field">
+        <span class="field__label">5つの観点で点数をつける<span class="field__hint">1〜5・あとから変えられます</span></span>
+        <div id="score-fields" class="score-fields"></div>
+        <p class="score-total">合計 <strong id="score-total">15</strong> / 25</p>
+      </div>
+      <div class="field">
+        <label class="field__label" for="input-memo">メモ<span class="field__hint">任意・気になっている理由など</span></label>
+        <textarea id="input-memo" maxlength="200" placeholder="例：来年の春までに取りたい"></textarea>
+      </div>
+      <div class="modal__actions">
+        <button type="button" id="btn-option-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="submit" id="btn-option-submit" class="btn btn--primary">候補に入れる</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 集中期間を始める -->
+  <div id="start-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">集中することを選ぶ</div>
+        <button type="button" id="btn-start-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__summary" id="start-lead">点数が高い順に並んでいます。この期間に集中することを、1〜3つまで選んでください。</p>
+      <div id="start-options" class="pick-list"></div>
+      <p class="field__label">どのくらいの期間？</p>
+      <div id="period-options" class="segmented" role="radiogroup"></div>
+      <label class="check-field"><input type="checkbox" id="input-hold-rest" checked /> 選ばなかった候補は「いまはやらない」に移す</label>
+      <div class="modal__actions">
+        <button type="button" id="btn-start-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="button" id="btn-start-save" class="btn btn--primary" disabled>今日から集中する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 見直し -->
+  <div id="review-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">期間の見直し</div>
+        <button type="button" id="btn-review-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__summary" id="review-summary"></p>
+      <div id="review-items" class="review-items"></div>
+      <div class="field">
+        <label class="field__label" for="input-review-note">気づいたこと<span class="field__hint">任意</span></label>
+        <textarea id="input-review-note" maxlength="300" placeholder="例：3つは多かった。次は2つに絞る"></textarea>
+      </div>
+      <div class="modal__actions">
+        <button type="button" id="btn-review-cancel" class="btn btn--ghost">あとで</button>
+        <button type="button" id="btn-review-save" class="btn btn--primary" disabled>見直しを記録する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 確認ダイアログ（カスタムUI） -->
+  <div id="confirm-dialog-overlay" class="dialog-overlay">
+    <div class="dialog">
+      <div class="dialog__title" id="confirm-dialog-title">削除しますか？</div>
+      <div class="dialog__text" id="confirm-dialog-text">削除すると元に戻せません。</div>
+      <div class="dialog__actions">
+        <button id="btn-confirm-cancel" class="btn btn--ghost">キャンセル</button>
+        <button id="btn-confirm-ok" class="btn btn--danger">削除する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 要望送信モーダル -->
+  <div id="feedback-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">ご意見・ご要望</div>
+        <button id="btn-feedback-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <textarea id="input-feedback-message" rows="5" maxlength="2000" placeholder="ご意見・ご要望・バグ報告など、なんでもどうぞ"></textarea>
+      <div class="modal__actions">
+        <button id="btn-feedback-send" class="btn btn--primary">送信する</button>
+      </div>
+      <p class="modal__note">送信内容は開発者に届きます。個人情報は入力しないでください。</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
