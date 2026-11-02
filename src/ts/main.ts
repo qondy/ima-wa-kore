@@ -13,6 +13,9 @@ import {
 } from './store';
 import { periodEnd, dayNumber, isOver, periodDates, doneDays, elapsedDays, rate, periodRate, shortLabel } from './stats';
 import { FocusOption, Period, Decision, Scores, OptionStatus } from './types';
+import { initClickTracking } from './analytics';
+
+initClickTracking();
 
 // ============================================================
 // DOM refs
