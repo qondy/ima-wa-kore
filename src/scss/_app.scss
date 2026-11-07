@@ -974,3 +974,175 @@
     white-space: nowrap;
   }
 }
+
+// いまはやらないこと（いまタブ）は折りたたみで見えないところに置く
+details.held-box {
+  .held-box__title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: 0;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: '開く';
+      font-size: $font-size-xs;
+      font-weight: 700;
+      color: $color-text-muted;
+    }
+  }
+
+  &[open] .held-box__title {
+    margin-bottom: 4px;
+
+    &::after {
+      content: '閉じる';
+    }
+  }
+}
+
+// ===== 空きスロット =====
+.slot-card {
+  margin-top: $spacing-lg;
+  padding: $spacing-md $spacing-lg;
+  background: $color-surface;
+  border: 2px dashed $color-primary;
+  border-radius: $radius-lg;
+
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    color: $color-primary-ink;
+  }
+
+  &__title {
+    font-size: $font-size-base;
+    font-weight: 800;
+    margin: 2px 0 4px;
+    word-break: break-word;
+  }
+
+  &__desc {
+    font-size: $font-size-sm;
+    color: $color-text-muted;
+    line-height: 1.6;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm $spacing-md;
+    margin-top: $spacing-xs;
+
+    &:empty {
+      display: none;
+    }
+  }
+}
+
+.slot-pill {
+  display: inline-block;
+  font-size: $font-size-xs;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  margin-top: 4px;
+
+  &--kept {
+    color: $color-primary-ink;
+    background: $color-primary-soft;
+  }
+
+  &--filled {
+    color: #4f5a5b;
+    background: $color-stop-soft;
+  }
+}
+
+.slot-summary {
+  font-size: $font-size-sm;
+  font-weight: 700;
+  color: $color-primary-ink;
+}
+
+.day-picker {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: $spacing-md;
+
+  &__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 0;
+    border: 1px solid $color-border;
+    border-radius: $radius-md;
+    background: $color-surface;
+    color: $color-text;
+
+    &.is-active {
+      background: $color-primary;
+      border-color: $color-primary;
+      color: #fff;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &__week {
+    font-size: $font-size-xs;
+    font-weight: 700;
+  }
+
+  &__date {
+    font-size: $font-size-xs;
+  }
+}
+
+.segmented--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+// ===== 「いつかやる」リストのリセット =====
+.reset-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $spacing-md;
+  background: $color-primary-soft;
+  border-radius: $radius-md;
+
+  &__text {
+    flex: 1 1 200px;
+    font-size: $font-size-sm;
+    line-height: 1.6;
+  }
+}
+
+.reset-group__head {
+  margin-top: $spacing-sm;
+
+  .field__label {
+    margin-bottom: 0;
+  }
+
+  .section__desc {
+    margin-bottom: $spacing-sm;
+  }
+}

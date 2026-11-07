@@ -1,4 +1,4 @@
-import { ScoreKey, Scores, Decision } from './types';
+import { ScoreKey, Scores, Decision, SlotTime, SlotResult } from './types';
 
 export const CATEGORIES = ['仕事', '学び', '健康', 'お金', '趣味', '暮らし', '人間関係', 'その他'];
 
@@ -51,3 +51,24 @@ export const HINTS = [
   '読書', '家計の見直し', '転職の準備', 'ブログ・発信', '睡眠を整える',
   '新しいスキルを学ぶ', '家族との時間', '趣味の作品づくり', '人脈づくり',
 ];
+
+export const SLOT_TIMES: { key: SlotTime; label: string }[] = [
+  { key: 'morning', label: '朝' },
+  { key: 'noon', label: '昼' },
+  { key: 'evening', label: '夕方' },
+  { key: 'night', label: '夜' },
+  { key: 'allday', label: 'まる1日' },
+];
+
+export const SLOT_RESULT_LABEL: Record<SlotResult, string> = {
+  kept: '空けておけた',
+  filled: '予定が入った',
+};
+
+/** 空きスロットに入ってきたことの例（入力のヒント） */
+export const FOUND_EXAMPLES = [
+  'ふらっと本屋に寄った', '昔の友だちから連絡がきた', 'ぼーっとしていたら案を思いついた', '近所を散歩して新しい店を見つけた',
+];
+
+/** 保留がこの件数以上たまったら、リセットをすすめる */
+export const RESET_SUGGEST_COUNT = 5;

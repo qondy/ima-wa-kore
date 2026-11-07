@@ -45,3 +45,21 @@ export interface Period {
   reviewedDate: string | null;
   createdAt: number;
 }
+
+/** 空きスロットの時間帯 */
+export type SlotTime = 'morning' | 'noon' | 'evening' | 'night' | 'allday';
+
+/** kept=空けておけた / filled=予定が入ってしまった */
+export type SlotResult = 'kept' | 'filled';
+
+/** users/{uid}/slots/{weekStart}（週に1枠だけ、予定を入れない時間） */
+export interface BlankSlot {
+  /** その週の月曜日 YYYY-MM-DD（ドキュメントID） */
+  weekStart: string;
+  /** 空けておく日 YYYY-MM-DD */
+  day: string;
+  time: SlotTime;
+  result: SlotResult | null;
+  /** その枠に偶然入ってきたこと */
+  found: string;
+}

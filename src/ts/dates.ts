@@ -44,3 +44,9 @@ export function hashString(s: string): number {
   }
   return h >>> 0;
 }
+
+/** その日を含む週の月曜日 */
+export function weekStartOf(key: string): string {
+  const day = parseKey(key).getDay();
+  return addDays(key, day === 0 ? -6 : 1 - day);
+}

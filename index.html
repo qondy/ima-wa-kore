@@ -97,14 +97,18 @@
             <h3 class="section__title">いまはやらない<span class="fold__count" id="count-hold"></span></h3>
           </summary>
           <p class="section__desc">保留にしたことです。忘れたわけではなく、いまは見えないところに置いているだけ。次の期間でまた選べます。</p>
+          <div id="reset-suggest" class="reset-suggest hidden">
+            <p class="reset-suggest__text" id="reset-suggest-text"></p>
+            <button type="button" id="btn-open-reset" class="btn btn--ghost btn--sm">「いつかやる」をリセット</button>
+          </div>
           <div id="hold-list" class="card-list"></div>
         </details>
 
         <details class="section section--sub fold" id="fold-dropped">
           <summary class="fold__summary">
-            <h3 class="section__title">やめたこと<span class="fold__count" id="count-dropped"></span></h3>
+            <h3 class="section__title">手放したこと<span class="fold__count" id="count-dropped"></span></h3>
           </summary>
-          <p class="section__desc">見直しで「やめる」と決めたことです。</p>
+          <p class="section__desc">見直しで「やめる」と決めたことと、リセットで手放したことです。必要になったら「候補に戻す」でいつでも戻せます。</p>
           <div id="dropped-list" class="card-list"></div>
         </details>
       </section>
@@ -121,6 +125,14 @@
           <div class="stat-card"><div class="stat-card__value" id="stat-rate">-</div><div class="stat-card__label">平均の手をつけた率</div></div>
         </div>
         <div id="history-list" class="card-list"></div>
+
+        <div class="section section--sub">
+          <div class="section__head">
+            <h3 class="section__title">空きスロットの記録</h3>
+            <p class="section__desc">予定を入れなかった枠に、どんな偶然が入ってきたか。</p>
+          </div>
+          <div id="slot-history" class="card-list"></div>
+        </div>
       </section>
 
     </main>
@@ -205,6 +217,62 @@
       <div class="modal__actions">
         <button type="button" id="btn-review-cancel" class="btn btn--ghost">あとで</button>
         <button type="button" id="btn-review-save" class="btn btn--primary" disabled>見直しを記録する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 空きスロットを決める -->
+  <div id="slot-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">今週の空きスロット</div>
+        <button type="button" id="btn-slot-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__summary">今週、予定を入れない枠を1つだけ決めます。何をするかは決めずに空けておくと、そこに偶然の何かが入ってきます。</p>
+      <p class="field__label">どの日？</p>
+      <div id="slot-days" class="day-picker" role="radiogroup"></div>
+      <p class="field__label">どの時間帯？</p>
+      <div id="slot-times" class="filter-chips filter-chips--tight" role="radiogroup"></div>
+      <div class="modal__actions">
+        <button type="button" id="btn-slot-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="button" id="btn-slot-save" class="btn btn--primary" disabled>この枠を空けておく</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 空きスロットのふりかえり -->
+  <div id="slot-review-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">空きスロットのふりかえり</div>
+        <button type="button" id="btn-slot-review-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__lead" id="slot-review-target"></p>
+      <p class="field__label">空けておけましたか？</p>
+      <div id="slot-results" class="segmented segmented--2" role="radiogroup"></div>
+      <div class="field">
+        <label class="field__label" for="input-slot-found">そこに入ってきたこと<span class="field__hint">任意</span></label>
+        <textarea id="input-slot-found" maxlength="200" placeholder=""></textarea>
+      </div>
+      <div class="modal__actions">
+        <button type="button" id="btn-slot-review-cancel" class="btn btn--ghost">あとで</button>
+        <button type="button" id="btn-slot-review-save" class="btn btn--primary" disabled>記録する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 「いつかやる」リストのリセット -->
+  <div id="reset-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">「いつかやる」をリセット</div>
+        <button type="button" id="btn-reset-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__summary">「いつか」のまま残っていることを、一度まとめて手放します。手放したものは「手放したこと」に移り、必要になったらいつでも候補に戻せます。</p>
+      <div id="reset-groups"></div>
+      <div class="modal__actions">
+        <button type="button" id="btn-reset-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="button" id="btn-reset-save" class="btn btn--primary" disabled>手放す</button>
       </div>
     </div>
   </div>

@@ -2,8 +2,8 @@ import {
   collection, doc, onSnapshot, setDoc, addDoc, deleteDoc, deleteField, serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { FocusOption, OptionStatus, Period, Decision, Scores, FocusRef } from './types';
-import { SCORE_AXES, CATEGORIES, defaultScores } from './options';
+import { FocusOption, OptionStatus, Period, Decision, Scores, FocusRef, BlankSlot, SlotTime, SlotResult } from './types';
+import { SCORE_AXES, CATEGORIES, SLOT_TIMES, defaultScores } from './options';
 
 const STATUSES: OptionStatus[] = ['pool', 'hold', 'dropped'];
 const DECISIONS: Decision[] = ['continue', 'swap', 'stop'];
@@ -18,6 +18,8 @@ const optionsCol = (uid: string) => collection(db, 'users', uid, 'options');
 const optionDoc = (uid: string, id: string) => doc(db, 'users', uid, 'options', id);
 const periodsCol = (uid: string) => collection(db, 'users', uid, 'periods');
 const periodDoc = (uid: string, id: string) => doc(db, 'users', uid, 'periods', id);
+const slotsCol = (uid: string) => collection(db, 'users', uid, 'slots');
+const slotDoc = (uid: string, weekStart: string) => doc(db, 'users', uid, 'slots', weekStart);
 
 function parseScores(v: unknown): Scores {
   const s = defaultScores();
@@ -84,6 +86,13 @@ export function setOptionStatus(uid: string, id: string, status: OptionStatus): 
 
 export function deleteOption(uid: string, id: string): Promise<void> {
   return deleteDoc(optionDoc(uid, id));
+}
+
+/** 「いつかやる」リストのリセット。選んだ候補をまとめて「手放したこと」へ移す（候補に戻せる） */
+export async function releaseOptions(uid: string, ids: string[]): Promise<void> {
+  const batch = writeBatch(db);
+  ids.forEach((id) => batch.set(optionDoc(uid, id), { status: 'dropped', updatedAt: serverTimestamp() }, { merge: true }));
+  await batch.commit();
 }
 
 // ============================================================
@@ -196,4 +205,45 @@ export async function reviewPeriod(uid: string, periodId: string, input: ReviewI
 
 export function deletePeriod(uid: string, id: string): Promise<void> {
   return deleteDoc(periodDoc(uid, id));
+}
+
+// ============================================================
+// 空きスロット（週に1枠、予定を入れない時間）
+// ============================================================
+const SLOT_TIME_KEYS = SLOT_TIMES.map((t) => t.key);
+const SLOT_RESULTS: SlotResult[] = ['kept', 'filled'];
+
+export function subscribeSlots(
+  uid: string,
+  onData: (items: BlankSlot[]) => void,
+  onError: (err: Error) => void,
+): () => void {
+  return onSnapshot(slotsCol(uid), (snap) => {
+    const list: BlankSlot[] = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      if (!DATE_RE.test(d.id) || typeof data.day !== 'string' || !DATE_RE.test(data.day)) return;
+      list.push({
+        weekStart: d.id,
+        day: data.day,
+        time: SLOT_TIME_KEYS.includes(data.time) ? data.time : 'allday',
+        result: SLOT_RESULTS.includes(data.result) ? data.result : null,
+        found: str(data.found),
+      });
+    });
+    list.sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+    onData(list);
+  }, onError);
+}
+
+export function setSlot(uid: string, weekStart: string, day: string, time: SlotTime): Promise<void> {
+  return setDoc(slotDoc(uid, weekStart), { day, time, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export function recordSlot(uid: string, weekStart: string, result: SlotResult, found: string): Promise<void> {
+  return setDoc(slotDoc(uid, weekStart), { result, found, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export function deleteSlot(uid: string, weekStart: string): Promise<void> {
+  return deleteDoc(slotDoc(uid, weekStart));
 }

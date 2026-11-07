@@ -2,18 +2,19 @@ import { User } from 'firebase/auth';
 import { onAuthChange, loginWithGoogle, logout } from './auth';
 import { showToast, openOverlay, closeOverlay, textEl, button, iconEl } from './ui';
 import { submitFeedback } from './feedback';
-import { todayKey, labelOf } from './dates';
+import { todayKey, labelOf, addDays, weekStartOf } from './dates';
 import {
   CATEGORIES, SCORE_AXES, SCORE_MAX, PERIOD_OPTIONS, MAX_FOCUS, DECISION_LABEL, DECISION_DESC, HINTS,
-  defaultScores, totalScore,
+  SLOT_TIMES, SLOT_RESULT_LABEL, FOUND_EXAMPLES, RESET_SUGGEST_COUNT, defaultScores, totalScore,
 } from './options';
 import {
   subscribeOptions, subscribePeriods, createOption, updateOption, setOptionStatus, deleteOption,
-  startPeriod, setCheck, reviewPeriod, deletePeriod,
+  startPeriod, setCheck, reviewPeriod, deletePeriod, releaseOptions,
+  subscribeSlots, setSlot, recordSlot, deleteSlot,
 } from './store';
 import { periodEnd, dayNumber, isOver, periodDates, doneDays, elapsedDays, rate, periodRate, shortLabel } from './stats';
-import { FocusOption, Period, Decision, Scores, OptionStatus } from './types';
-import { initClickTracking } from './analytics';
+import { FocusOption, Period, Decision, Scores, OptionStatus, BlankSlot, SlotTime, SlotResult } from './types';
+import { initClickTracking, track } from './analytics';
 
 initClickTracking();
 
@@ -43,6 +44,10 @@ const droppedList = $('dropped-list');
 const countHold = $('count-hold');
 const countDropped = $('count-dropped');
 const historyList = $('history-list');
+const slotHistory = $('slot-history');
+const resetSuggest = $('reset-suggest');
+const resetSuggestText = $('reset-suggest-text');
+const btnOpenReset = $<HTMLButtonElement>('btn-open-reset');
 const statPeriods = $('stat-periods');
 const statFocus = $('stat-focus');
 const statRate = $('stat-rate');
@@ -74,6 +79,21 @@ const reviewSummary = $('review-summary');
 const reviewItems = $('review-items');
 const inputReviewNote = $<HTMLTextAreaElement>('input-review-note');
 const btnReviewSave = $<HTMLButtonElement>('btn-review-save');
+
+const slotOverlay = $('slot-modal-overlay');
+const slotDays = $('slot-days');
+const slotTimes = $('slot-times');
+const btnSlotSave = $<HTMLButtonElement>('btn-slot-save');
+
+const slotReviewOverlay = $('slot-review-overlay');
+const slotReviewTarget = $('slot-review-target');
+const slotResults = $('slot-results');
+const inputSlotFound = $<HTMLTextAreaElement>('input-slot-found');
+const btnSlotReviewSave = $<HTMLButtonElement>('btn-slot-review-save');
+
+const resetOverlay = $('reset-modal-overlay');
+const resetGroups = $('reset-groups');
+const btnResetSave = $<HTMLButtonElement>('btn-reset-save');
 
 const confirmOverlay = $('confirm-dialog-overlay');
 const confirmTitle = $('confirm-dialog-title');
@@ -109,6 +129,13 @@ interface State {
   pickDays: number;
   reviewId: string | null;
   reviewDecisions: Record<string, Decision>;
+  slots: BlankSlot[];
+  slotsLoaded: boolean;
+  slotDay: string | null;
+  slotTime: SlotTime;
+  slotReviewWeek: string | null;
+  slotResult: SlotResult | null;
+  resetIds: Set<string>;
   pending: Set<string>;
   confirmAction: (() => Promise<void>) | null;
 }
@@ -129,6 +156,13 @@ const state: State = {
   pickDays: 7,
   reviewId: null,
   reviewDecisions: {},
+  slots: [],
+  slotsLoaded: false,
+  slotDay: null,
+  slotTime: 'allday',
+  slotReviewWeek: null,
+  slotResult: null,
+  resetIds: new Set(),
   pending: new Set(),
   confirmAction: null,
 };
@@ -236,6 +270,7 @@ function renderNow(): void {
       box.appendChild(button('集中することを選ぶ', 'btn btn--primary btn--lg', () => openStartModal([])));
     }
     nowContent.appendChild(box);
+    nowContent.appendChild(slotCard());
     return;
   }
 
@@ -321,11 +356,14 @@ function renderNow(): void {
     nowContent.appendChild(early);
   }
 
-  // 手放していること
+  // 手放していること（ふだんは見えないところに置き、気になったときだけ開く）
   if (p.heldTitles.length) {
-    const held = document.createElement('div');
+    const held = document.createElement('details');
     held.className = 'held-box';
-    held.appendChild(textEl('p', 'held-box__title', `いまはやらないこと（${p.heldTitles.length}件）`));
+    const summary = document.createElement('summary');
+    summary.className = 'held-box__title';
+    summary.textContent = `いまはやらないこと（${p.heldTitles.length}件）`;
+    held.appendChild(summary);
     held.appendChild(textEl('p', 'section__desc', '選ばなかったことは、この期間は気にしなくて大丈夫です。'));
     const chips = document.createElement('div');
     chips.className = 'held-box__list';
@@ -333,7 +371,243 @@ function renderNow(): void {
     held.appendChild(chips);
     nowContent.appendChild(held);
   }
+
+  nowContent.appendChild(slotCard());
 }
+
+// ============================================================
+// 空きスロット（週に1枠、予定を入れない時間）
+// ============================================================
+const SLOT_TIME_LABEL = (t: SlotTime): string => SLOT_TIMES.find((x) => x.key === t)?.label ?? '';
+
+const findSlot = (weekStart: string | null): BlankSlot | undefined =>
+  (weekStart ? state.slots.find((x) => x.weekStart === weekStart) : undefined);
+
+const slotLabel = (slot: BlankSlot): string =>
+  `${labelOf(slot.day)}${slot.time === 'allday' ? 'はまる1日' : `の${SLOT_TIME_LABEL(slot.time)}`}`;
+
+function slotCard(): HTMLElement {
+  const today = todayKey();
+  const ws = weekStartOf(today);
+  const slot = findSlot(ws);
+  const card = document.createElement('div');
+  card.className = 'slot-card';
+  card.appendChild(textEl('p', 'slot-card__label', '今週の空きスロット'));
+
+  if (!state.slotsLoaded) {
+    card.appendChild(textEl('p', 'slot-card__desc', '読み込み中…'));
+    return card;
+  }
+
+  if (!slot) {
+    card.appendChild(textEl('p', 'slot-card__title', '予定を入れない枠を、週に1つだけ'));
+    card.appendChild(textEl('p', 'slot-card__desc', 'やることで埋めずに空けておくと、そこに偶然の何かが入る余地が生まれます。'));
+    card.appendChild(button('今週の枠を決める', 'btn btn--primary btn--sm', () => openSlotModal()));
+    return card;
+  }
+
+  card.appendChild(textEl('p', 'slot-card__title', `${slotLabel(slot)}は、何も入れない`));
+  const actions = document.createElement('div');
+  actions.className = 'slot-card__actions';
+  if (slot.result) {
+    card.appendChild(textEl('span', `slot-pill slot-pill--${slot.result}`, SLOT_RESULT_LABEL[slot.result]));
+    if (slot.found) card.appendChild(textEl('p', 'item-card__memo', slot.found));
+    actions.appendChild(button('ふりかえりを直す', 'text-btn', () => openSlotReview(slot.weekStart)));
+  } else if (slot.day <= today) {
+    card.appendChild(textEl('p', 'slot-card__desc', slot.day === today
+      ? '今日がその日です。予定を入れずに、気の向くままに過ごしてみましょう。'
+      : '空けておけましたか？ そこに何が入ってきたか、ひとこと残しておきましょう。'));
+    actions.appendChild(button('ふりかえる', 'btn btn--primary btn--sm', () => openSlotReview(slot.weekStart)));
+    actions.appendChild(button('日を変える', 'text-btn', () => openSlotModal()));
+  } else {
+    const left = Math.round((new Date(`${slot.day}T00:00`).getTime() - new Date(`${today}T00:00`).getTime()) / 86400000);
+    card.appendChild(textEl('p', 'slot-card__desc', `あと${left}日。この枠には、やることを入れないでおきましょう。`));
+    actions.appendChild(button('日を変える', 'text-btn', () => openSlotModal()));
+    actions.appendChild(button('取りやめる', 'text-btn', () => {
+      askConfirm('今週の空きスロットを取りやめますか？', `${slotLabel(slot)}の枠を取り消します。`, '取りやめる', async () => {
+        if (!state.uid) return;
+        const uid = state.uid;
+        const ok = await withLock(`slot:${slot.weekStart}`, () => deleteSlot(uid, slot.weekStart), '取りやめに失敗しました');
+        if (ok) showToast('取りやめました');
+      });
+    }));
+  }
+  card.appendChild(actions);
+  return card;
+}
+
+function openSlotModal(): void {
+  const today = todayKey();
+  const slot = findSlot(weekStartOf(today));
+  state.slotDay = slot && slot.day >= today ? slot.day : null;
+  state.slotTime = slot?.time ?? 'allday';
+  renderSlotModal();
+  openOverlay(slotOverlay);
+}
+
+function renderSlotModal(): void {
+  const today = todayKey();
+  const ws = weekStartOf(today);
+  slotDays.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(ws, i);
+    const on = state.slotDay === d;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `day-picker__btn${on ? ' is-active' : ''}`;
+    b.disabled = d < today;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(on));
+    b.setAttribute('aria-label', labelOf(d));
+    b.append(textEl('span', 'day-picker__week', '月火水木金土日'[i]), textEl('span', 'day-picker__date', shortLabel(d)));
+    b.addEventListener('click', () => {
+      state.slotDay = d;
+      renderSlotModal();
+    });
+    slotDays.appendChild(b);
+  }
+  slotTimes.innerHTML = '';
+  SLOT_TIMES.forEach(({ key, label }) => {
+    const on = state.slotTime === key;
+    const c = button(label, `chip${on ? ' is-active' : ''}`, () => {
+      state.slotTime = key;
+      renderSlotModal();
+    });
+    c.setAttribute('role', 'radio');
+    c.setAttribute('aria-checked', String(on));
+    slotTimes.appendChild(c);
+  });
+  btnSlotSave.disabled = !state.slotDay || state.pending.has('slot-set');
+}
+
+btnSlotSave.addEventListener('click', () => {
+  if (!state.uid || !state.slotDay) return;
+  const uid = state.uid;
+  const day = state.slotDay;
+  const time = state.slotTime;
+  void withLock('slot-set', async () => {
+    await setSlot(uid, weekStartOf(day), day, time);
+    closeOverlay(slotOverlay);
+    track('slot_set', { slot_time: time });
+    showToast('空きスロットを確保しました');
+  });
+});
+
+function openSlotReview(weekStart: string): void {
+  const slot = findSlot(weekStart);
+  if (!slot) return;
+  state.slotReviewWeek = weekStart;
+  state.slotResult = slot.result;
+  inputSlotFound.value = slot.found;
+  inputSlotFound.placeholder = `例：${FOUND_EXAMPLES[Math.floor(Math.random() * FOUND_EXAMPLES.length)]}`;
+  slotReviewTarget.textContent = slotLabel(slot);
+  renderSlotReview();
+  openOverlay(slotReviewOverlay);
+}
+
+function renderSlotReview(): void {
+  slotResults.innerHTML = '';
+  (['kept', 'filled'] as SlotResult[]).forEach((r) => {
+    const on = state.slotResult === r;
+    const b = button(SLOT_RESULT_LABEL[r], `segmented__btn${on ? ' is-active' : ''}`, () => {
+      state.slotResult = r;
+      renderSlotReview();
+    });
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(on));
+    slotResults.appendChild(b);
+  });
+  btnSlotReviewSave.disabled = !state.slotResult || state.pending.has('slot-review');
+}
+
+btnSlotReviewSave.addEventListener('click', () => {
+  const week = state.slotReviewWeek;
+  const result = state.slotResult;
+  if (!state.uid || !week || !result) return;
+  const uid = state.uid;
+  const found = inputSlotFound.value.trim();
+  void withLock('slot-review', async () => {
+    await recordSlot(uid, week, result, found);
+    closeOverlay(slotReviewOverlay);
+    state.slotReviewWeek = null;
+    track('slot_review', { slot_result: result, has_found: found ? 1 : 0 });
+    showToast(result === 'kept' ? '空けておけた！ 来週もひと枠どうぞ' : '記録しました。来週はもう少し守ってみましょう');
+  });
+});
+
+// ============================================================
+// 「いつかやる」リストのリセット
+// ============================================================
+function openResetModal(): void {
+  // 保留中のものは最初から選んでおく（候補のほうは自分で選ぶ）
+  state.resetIds = new Set(byStatus('hold').map((o) => o.id));
+  renderResetModal();
+  openOverlay(resetOverlay);
+}
+
+function renderResetModal(): void {
+  const focusIds = new Set((activePeriod()?.focus ?? []).map((f) => f.id));
+  const groups: [string, string, FocusOption[]][] = [
+    ['いまはやらない（保留）', '「いつか」のまま置いてあるものです。', byScore(byStatus('hold'))],
+    ['候補', 'いま集中しているものは選べません。', byScore(byStatus('pool').filter((o) => !focusIds.has(o.id)))],
+  ];
+  resetGroups.innerHTML = '';
+  groups.forEach(([title, desc, list]) => {
+    if (!list.length) return;
+    const head = document.createElement('div');
+    head.className = 'reset-group__head';
+    head.append(textEl('p', 'field__label', title), textEl('p', 'section__desc', desc));
+    resetGroups.appendChild(head);
+    const wrap = document.createElement('div');
+    wrap.className = 'pick-list';
+    list.forEach((o) => {
+      const checked = state.resetIds.has(o.id);
+      const label = document.createElement('label');
+      label.className = `pick-item${checked ? ' is-checked' : ''}`;
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = checked;
+      cb.addEventListener('change', () => {
+        if (cb.checked) state.resetIds.add(o.id);
+        else state.resetIds.delete(o.id);
+        renderResetModal();
+      });
+      const body = document.createElement('span');
+      body.className = 'pick-item__body';
+      const meta = textEl('span', 'pick-item__meta', o.category);
+      meta.style.display = 'block';
+      body.append(textEl('span', 'pick-item__title', o.title), meta);
+      label.append(cb, body, textEl('span', 'pick-item__score', `${totalScore(o.scores)}点`));
+      wrap.appendChild(label);
+    });
+    resetGroups.appendChild(wrap);
+  });
+  if (!resetGroups.childElementCount) resetGroups.appendChild(emptyState('手放せるものはありません。'));
+  const n = state.resetIds.size;
+  btnResetSave.disabled = n === 0 || state.pending.has('reset');
+  btnResetSave.textContent = n ? `${n}件を手放す` : '手放す';
+}
+
+btnOpenReset.addEventListener('click', openResetModal);
+
+btnResetSave.addEventListener('click', () => {
+  if (!state.uid || !state.resetIds.size) return;
+  const uid = state.uid;
+  // 手放せるのは保留中と、いま集中していない候補だけ
+  const focusIds = new Set((activePeriod()?.focus ?? []).map((f) => f.id));
+  const ids = [...state.resetIds].filter((id) => {
+    const o = findOption(id);
+    return o && (o.status === 'hold' || (o.status === 'pool' && !focusIds.has(id)));
+  });
+  if (!ids.length) return;
+  void withLock('reset', async () => {
+    await releaseOptions(uid, ids);
+    closeOverlay(resetOverlay);
+    state.resetIds = new Set();
+    track('someday_reset', { count: ids.length });
+    showToast(`${ids.length}件を手放しました。すっきり！`);
+  });
+});
 
 const PERIOD_LABEL = (days: number): string =>
   PERIOD_OPTIONS.find((o) => o.days === days)?.label ?? `${days}日間`;
@@ -429,6 +703,10 @@ function renderPool(): void {
 
   const hold = byStatus('hold');
   countHold.textContent = hold.length ? `（${hold.length}）` : '';
+  resetSuggest.classList.toggle('hidden', hold.length === 0);
+  resetSuggestText.textContent = hold.length >= RESET_SUGGEST_COUNT
+    ? `「いつか」が${hold.length}件たまっています。一度まとめて手放すと、新しいことが入る枠が空きます。`
+    : '「いつか」のまま残っていることは、まとめて手放せます。';
   holdList.innerHTML = '';
   if (!hold.length) holdList.appendChild(emptyState('保留にしているものはありません。'));
   else byScore(hold).forEach((o) => holdList.appendChild(optionCard(o, null, focusIds)));
@@ -500,6 +778,38 @@ function renderHistory(): void {
   });
 }
 
+function renderSlotHistory(): void {
+  const ws = weekStartOf(todayKey());
+  const past = state.slots.filter((x) => x.weekStart < ws);
+  slotHistory.innerHTML = '';
+  if (!state.slotsLoaded) {
+    slotHistory.appendChild(emptyState('読み込み中…'));
+    return;
+  }
+  if (!past.length) {
+    slotHistory.appendChild(emptyState('先週までの空きスロットが、ここに並びます。'));
+    return;
+  }
+  const kept = past.filter((x) => x.result === 'kept').length;
+  slotHistory.appendChild(textEl('p', 'slot-summary', `空けておけた週 ${kept} / ${past.length}`));
+  past.forEach((slot) => {
+    const card = document.createElement('div');
+    card.className = 'item-card item-card--record';
+    const body = document.createElement('div');
+    body.className = 'item-card__body';
+    body.appendChild(textEl('p', 'item-card__title', slotLabel(slot)));
+    if (slot.result) body.appendChild(textEl('span', `slot-pill slot-pill--${slot.result}`, SLOT_RESULT_LABEL[slot.result]));
+    else body.appendChild(textEl('p', 'item-card__meta', 'まだふりかえっていません'));
+    if (slot.found) body.appendChild(textEl('p', 'item-card__memo', slot.found));
+    card.appendChild(body);
+    const actions = document.createElement('div');
+    actions.className = 'item-card__actions';
+    actions.appendChild(button(slot.result ? '直す' : 'ふりかえる', 'btn btn--ghost btn--sm', () => openSlotReview(slot.weekStart)));
+    card.appendChild(actions);
+    slotHistory.appendChild(card);
+  });
+}
+
 function renderTabs(): void {
   tabButtons.forEach((b) => {
     const on = b.dataset.tab === state.tab;
@@ -514,7 +824,11 @@ function renderAll(): void {
   renderNow();
   renderPool();
   renderHistory();
+  renderSlotHistory();
   if (startOverlay.classList.contains('is-open')) renderStartModal();
+  if (slotOverlay.classList.contains('is-open')) renderSlotModal();
+  if (slotReviewOverlay.classList.contains('is-open')) renderSlotReview();
+  if (resetOverlay.classList.contains('is-open')) renderResetModal();
   if (reviewOverlay.classList.contains('is-open')) renderReviewModal();
 }
 
@@ -855,18 +1169,34 @@ btnFeedbackSend.addEventListener('click', async () => {
 });
 
 // オーバーレイの背景クリックで閉じる（確認ダイアログは誤操作防止のため除外）
-[optionOverlay, startOverlay, reviewOverlay, feedbackOverlay].forEach((overlay) => {
+const closeSlotModal = (): void => closeOverlay(slotOverlay);
+$('btn-slot-close').addEventListener('click', closeSlotModal);
+$('btn-slot-cancel').addEventListener('click', closeSlotModal);
+const closeSlotReview = (): void => {
+  closeOverlay(slotReviewOverlay);
+  state.slotReviewWeek = null;
+};
+$('btn-slot-review-close').addEventListener('click', closeSlotReview);
+$('btn-slot-review-cancel').addEventListener('click', closeSlotReview);
+const closeResetModal = (): void => closeOverlay(resetOverlay);
+$('btn-reset-close').addEventListener('click', closeResetModal);
+$('btn-reset-cancel').addEventListener('click', closeResetModal);
+
+[optionOverlay, startOverlay, reviewOverlay, slotOverlay, slotReviewOverlay, resetOverlay, feedbackOverlay].forEach((overlay) => {
   overlay.addEventListener('click', (e) => {
     if (e.target !== overlay) return;
     closeOverlay(overlay);
     if (overlay === reviewOverlay) state.reviewId = null;
+    if (overlay === slotReviewOverlay) state.slotReviewWeek = null;
   });
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  [optionOverlay, startOverlay, reviewOverlay, feedbackOverlay, confirmOverlay].forEach((o) => closeOverlay(o));
+  [optionOverlay, startOverlay, reviewOverlay, slotOverlay, slotReviewOverlay, resetOverlay, feedbackOverlay, confirmOverlay]
+    .forEach((o) => closeOverlay(o));
   state.reviewId = null;
+  state.slotReviewWeek = null;
   state.confirmAction = null;
 });
 
@@ -921,8 +1251,10 @@ onAuthChange((user: User | null) => {
     state.uid = null;
     state.options = [];
     state.periods = [];
+    state.slots = [];
     state.optionsLoaded = false;
     state.periodsLoaded = false;
+    state.slotsLoaded = false;
     loginScreen.classList.remove('hidden');
     appEl.classList.add('hidden');
     userInfo.classList.add('hidden');
@@ -949,6 +1281,11 @@ onAuthChange((user: User | null) => {
   state.unsubscribers.push(subscribePeriods(user.uid, (items) => {
     state.periods = items;
     state.periodsLoaded = true;
+    renderAll();
+  }, onError));
+  state.unsubscribers.push(subscribeSlots(user.uid, (items) => {
+    state.slots = items;
+    state.slotsLoaded = true;
     renderAll();
   }, onError));
 });
