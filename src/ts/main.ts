@@ -40,6 +40,8 @@ const sortChips = $('sort-chips');
 const poolList = $('pool-list');
 const holdList = $('hold-list');
 const droppedList = $('dropped-list');
+const countHold = $('count-hold');
+const countDropped = $('count-dropped');
 const historyList = $('history-list');
 const statPeriods = $('stat-periods');
 const statFocus = $('stat-focus');
@@ -426,11 +428,13 @@ function renderPool(): void {
   }
 
   const hold = byStatus('hold');
+  countHold.textContent = hold.length ? `（${hold.length}）` : '';
   holdList.innerHTML = '';
   if (!hold.length) holdList.appendChild(emptyState('保留にしているものはありません。'));
   else byScore(hold).forEach((o) => holdList.appendChild(optionCard(o, null, focusIds)));
 
   const dropped = byStatus('dropped');
+  countDropped.textContent = dropped.length ? `（${dropped.length}）` : '';
   droppedList.innerHTML = '';
   droppedList.closest('.section')?.classList.toggle('hidden', dropped.length === 0);
   dropped.forEach((o) => droppedList.appendChild(optionCard(o, null, focusIds)));

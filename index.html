@@ -92,21 +92,21 @@
         <div class="filter-chips" id="sort-chips" role="radiogroup"></div>
         <div id="pool-list" class="card-list"></div>
 
-        <div class="section section--sub">
-          <div class="section__head">
-            <h3 class="section__title">いまはやらない</h3>
-            <p class="section__desc">保留にしたことです。忘れたわけではなく、いまは手放しているだけ。次の期間でまた選べます。</p>
-          </div>
+        <details class="section section--sub fold" id="fold-hold">
+          <summary class="fold__summary">
+            <h3 class="section__title">いまはやらない<span class="fold__count" id="count-hold"></span></h3>
+          </summary>
+          <p class="section__desc">保留にしたことです。忘れたわけではなく、いまは見えないところに置いているだけ。次の期間でまた選べます。</p>
           <div id="hold-list" class="card-list"></div>
-        </div>
+        </details>
 
-        <div class="section section--sub">
-          <div class="section__head">
-            <h3 class="section__title">やめたこと</h3>
-            <p class="section__desc">見直しで「やめる」と決めたことです。</p>
-          </div>
+        <details class="section section--sub fold" id="fold-dropped">
+          <summary class="fold__summary">
+            <h3 class="section__title">やめたこと<span class="fold__count" id="count-dropped"></span></h3>
+          </summary>
+          <p class="section__desc">見直しで「やめる」と決めたことです。</p>
           <div id="dropped-list" class="card-list"></div>
-        </div>
+        </details>
       </section>
 
       <!-- 見直し履歴 -->

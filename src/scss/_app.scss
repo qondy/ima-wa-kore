@@ -519,6 +519,53 @@
   margin-bottom: 0;
 }
 
+// 折りたたみ（見えないところに置く保留・やめたこと）
+.fold {
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  padding: 0 $spacing-md;
+
+  &[open] {
+    padding-bottom: $spacing-md;
+  }
+
+  &__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    padding: $spacing-md 0;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: '開く';
+      font-size: $font-size-xs;
+      font-weight: 700;
+      color: $color-text-muted;
+    }
+  }
+
+  &[open] > &__summary::after {
+    content: '閉じる';
+  }
+
+  &__count {
+    margin-left: $spacing-xs;
+    font-weight: 500;
+    color: $color-text-muted;
+  }
+
+  .section__desc {
+    margin-bottom: $spacing-md;
+  }
+}
+
 .filter-chips--tight {
   margin-bottom: 0;
 }
