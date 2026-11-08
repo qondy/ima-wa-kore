@@ -9,7 +9,7 @@ import {
 } from './options';
 import {
   subscribeOptions, subscribePeriods, createOption, updateOption, setOptionStatus, deleteOption,
-  startPeriod, setCheck, reviewPeriod, deletePeriod, releaseOptions,
+  startPeriod, setCheck, reviewPeriod, deletePeriod, releaseOptions, joinFocus,
   subscribeSlots, setSlot, recordSlot, deleteSlot,
 } from './store';
 import { periodEnd, dayNumber, isOver, periodDates, doneDays, elapsedDays, rate, periodRate, shortLabel } from './stats';
@@ -91,6 +91,11 @@ const slotResults = $('slot-results');
 const inputSlotFound = $<HTMLTextAreaElement>('input-slot-found');
 const btnSlotReviewSave = $<HTMLButtonElement>('btn-slot-review-save');
 
+const joinOverlay = $('join-modal-overlay');
+const joinSummary = $('join-summary');
+const joinSwap = $('join-swap');
+const btnJoinSave = $<HTMLButtonElement>('btn-join-save');
+
 const resetOverlay = $('reset-modal-overlay');
 const resetGroups = $('reset-groups');
 const btnResetSave = $<HTMLButtonElement>('btn-reset-save');
@@ -136,6 +141,8 @@ interface State {
   slotReviewWeek: string | null;
   slotResult: SlotResult | null;
   resetIds: Set<string>;
+  joinId: string | null;
+  joinSwapId: string | null;
   pending: Set<string>;
   confirmAction: (() => Promise<void>) | null;
 }
@@ -163,6 +170,8 @@ const state: State = {
   slotReviewWeek: null,
   slotResult: null,
   resetIds: new Set(),
+  joinId: null,
+  joinSwapId: null,
   pending: new Set(),
   confirmAction: null,
 };
@@ -346,6 +355,18 @@ function renderNow(): void {
     list.appendChild(card);
   });
   nowContent.appendChild(list);
+
+  if (!over && p.focus.length < MAX_FOCUS) {
+    const room = document.createElement('div');
+    room.className = 'room-note';
+    room.appendChild(textEl('p', 'room-note__text', `集中の枠があと${MAX_FOCUS - p.focus.length}つ空いています。気になる候補があれば、期間はそのままで加えられます。`));
+    room.appendChild(button('候補から加える', 'btn btn--ghost btn--sm', () => {
+      state.tab = 'pool';
+      renderTabs();
+      window.scrollTo({ top: 0 });
+    }));
+    nowContent.appendChild(room);
+  }
 
   if (!over) {
     const early = document.createElement('p');
@@ -609,6 +630,95 @@ btnResetSave.addEventListener('click', () => {
   });
 });
 
+// ============================================================
+// 期間の途中で「いま」に加える（空き枠に入れる／1つと入れ替える）
+// ============================================================
+function openJoinModal(id: string): void {
+  const p = activePeriod();
+  const o = findOption(id);
+  if (!p || !o || isOver(p, todayKey())) {
+    showToast('いまの期間は終わっています。見直して次を選びましょう');
+    return;
+  }
+  state.joinId = id;
+  state.joinSwapId = null;
+  renderJoinModal();
+  openOverlay(joinOverlay);
+}
+
+function renderJoinModal(): void {
+  const p = activePeriod();
+  const o = findOption(state.joinId);
+  if (!p || !o) {
+    closeOverlay(joinOverlay);
+    return;
+  }
+  const full = p.focus.length >= MAX_FOCUS;
+  const left = Math.max(p.days - Math.min(dayNumber(p, todayKey()), p.days), 0);
+  const rest = left === 0 ? '今日が最終日です' : `期間はそのまま、あと${left}日です`;
+  joinSummary.textContent = full
+    ? `集中は${MAX_FOCUS}つまでです。「${o.title}」と入れ替えるものを1つ選んでください。外したものは候補に戻ります（${rest}）。`
+    : `「${o.title}」を、いまの集中に加えます。${rest}。`;
+  joinSwap.innerHTML = '';
+  joinSwap.classList.toggle('hidden', !full);
+  if (full) {
+    p.focus.forEach((f) => {
+      const checked = state.joinSwapId === f.id;
+      const label = document.createElement('label');
+      label.className = `pick-item${checked ? ' is-checked' : ''}`;
+      const rb = document.createElement('input');
+      rb.type = 'radio';
+      rb.name = 'join-swap';
+      rb.checked = checked;
+      rb.addEventListener('change', () => {
+        state.joinSwapId = f.id;
+        renderJoinModal();
+      });
+      const body = document.createElement('span');
+      body.className = 'pick-item__body';
+      const meta = textEl('span', 'pick-item__meta', `手をつけた日 ${doneDays(p, f.id)}日`);
+      meta.style.display = 'block';
+      body.append(textEl('span', 'pick-item__title', focusTitle(f)), meta);
+      label.append(rb, body);
+      joinSwap.appendChild(label);
+    });
+  }
+  btnJoinSave.disabled = (full && !state.joinSwapId) || state.pending.has('join');
+  btnJoinSave.textContent = full ? '入れ替える' : 'いまに加える';
+}
+
+btnJoinSave.addEventListener('click', () => {
+  if (!state.uid) return;
+  const uid = state.uid;
+  const p = activePeriod();
+  const o = findOption(state.joinId);
+  if (!p || !o || p.focus.some((f) => f.id === o.id)) {
+    closeOverlay(joinOverlay);
+    return;
+  }
+  const full = p.focus.length >= MAX_FOCUS;
+  const swapId = full ? state.joinSwapId : null;
+  if (full && !p.focus.some((f) => f.id === swapId)) return;
+  const focus = [...p.focus.filter((f) => f.id !== swapId), { id: o.id, title: o.title }].slice(0, MAX_FOCUS);
+  const heldTitles = p.heldTitles.filter((t) => t !== o.title);
+  void withLock('join', async () => {
+    await joinFocus(uid, p.id, { focus, heldTitles, addId: o.id, restore: o.status === 'hold' });
+    closeOverlay(joinOverlay);
+    state.joinId = null;
+    state.joinSwapId = null;
+    state.tab = 'now';
+    track('focus_join', { join_type: swapId ? 'swap' : 'add' });
+    showToast(swapId ? '入れ替えました。いまはこれ！' : 'いまの集中に加えました');
+  });
+});
+
+const closeJoinModal = (): void => {
+  closeOverlay(joinOverlay);
+  state.joinId = null;
+};
+$('btn-join-close').addEventListener('click', closeJoinModal);
+$('btn-join-cancel').addEventListener('click', closeJoinModal);
+
 const PERIOD_LABEL = (days: number): string =>
   PERIOD_OPTIONS.find((o) => o.days === days)?.label ?? `${days}日間`;
 
@@ -639,6 +749,12 @@ function optionCard(o: FocusOption, rank: number | null, focusIds: Set<string>):
   const actions = document.createElement('div');
   actions.className = 'item-card__actions';
   const busy = state.pending.has(`option:${o.id}`);
+  const ap = activePeriod();
+  if (ap && !isOver(ap, todayKey()) && !focusIds.has(o.id) && o.status !== 'dropped') {
+    const join = button('いまに加える', 'btn btn--primary btn--sm', () => openJoinModal(o.id));
+    join.disabled = busy || state.pending.has('join');
+    actions.appendChild(join);
+  }
   const edit = button('編集', 'btn btn--ghost btn--sm', () => openOptionModal(o.id));
   actions.appendChild(edit);
   if (o.status === 'pool') {
@@ -830,6 +946,7 @@ function renderAll(): void {
   if (slotReviewOverlay.classList.contains('is-open')) renderSlotReview();
   if (resetOverlay.classList.contains('is-open')) renderResetModal();
   if (reviewOverlay.classList.contains('is-open')) renderReviewModal();
+  if (joinOverlay.classList.contains('is-open')) renderJoinModal();
 }
 
 // ============================================================
@@ -939,7 +1056,7 @@ $('btn-option-cancel').addEventListener('click', closeOptionModal);
 // ============================================================
 function openStartModal(preselect: string[], lead?: string): void {
   if (activePeriod()) {
-    showToast('いまの集中期間を見直してから、次を選びましょう');
+    showToast('期間の途中で増やすときは、候補の「いまに加える」から');
     return;
   }
   const candidates = state.options.filter((o) => o.status !== 'dropped');
@@ -1182,7 +1299,7 @@ const closeResetModal = (): void => closeOverlay(resetOverlay);
 $('btn-reset-close').addEventListener('click', closeResetModal);
 $('btn-reset-cancel').addEventListener('click', closeResetModal);
 
-[optionOverlay, startOverlay, reviewOverlay, slotOverlay, slotReviewOverlay, resetOverlay, feedbackOverlay].forEach((overlay) => {
+[optionOverlay, startOverlay, reviewOverlay, slotOverlay, slotReviewOverlay, resetOverlay, joinOverlay, feedbackOverlay].forEach((overlay) => {
   overlay.addEventListener('click', (e) => {
     if (e.target !== overlay) return;
     closeOverlay(overlay);
@@ -1193,7 +1310,7 @@ $('btn-reset-cancel').addEventListener('click', closeResetModal);
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  [optionOverlay, startOverlay, reviewOverlay, slotOverlay, slotReviewOverlay, resetOverlay, feedbackOverlay, confirmOverlay]
+  [optionOverlay, startOverlay, reviewOverlay, slotOverlay, slotReviewOverlay, resetOverlay, joinOverlay, feedbackOverlay, confirmOverlay]
     .forEach((o) => closeOverlay(o));
   state.reviewId = null;
   state.slotReviewWeek = null;

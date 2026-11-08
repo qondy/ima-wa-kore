@@ -277,6 +277,22 @@
     </div>
   </div>
 
+  <!-- 期間の途中で「いま」に加える -->
+  <div id="join-modal-overlay" class="dialog-overlay">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title">「いま」に加える</div>
+        <button type="button" id="btn-join-close" class="modal__close" aria-label="閉じる">&times;</button>
+      </div>
+      <p class="modal__summary" id="join-summary"></p>
+      <div id="join-swap" class="pick-list"></div>
+      <div class="modal__actions">
+        <button type="button" id="btn-join-cancel" class="btn btn--ghost">キャンセル</button>
+        <button type="button" id="btn-join-save" class="btn btn--primary" disabled>いまに加える</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 確認ダイアログ（カスタムUI） -->
   <div id="confirm-dialog-overlay" class="dialog-overlay">
     <div class="dialog">

@@ -175,6 +175,27 @@ export async function startPeriod(uid: string, input: StartInput): Promise<void>
   await batch.commit();
 }
 
+export interface JoinInput {
+  /** 新しい集中先の並び（加える候補を含む） */
+  focus: FocusRef[];
+  heldTitles: string[];
+  /** 加える候補。保留中なら候補に戻す */
+  addId: string;
+  restore: boolean;
+}
+
+/** 期間の途中で、空いている枠に候補を加える（または1つと入れ替える） */
+export async function joinFocus(uid: string, periodId: string, input: JoinInput): Promise<void> {
+  const batch = writeBatch(db);
+  batch.set(periodDoc(uid, periodId), {
+    focus: input.focus,
+    heldTitles: input.heldTitles,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  if (input.restore) batch.set(optionDoc(uid, input.addId), { status: 'pool', updatedAt: serverTimestamp() }, { merge: true });
+  await batch.commit();
+}
+
 export function setCheck(uid: string, periodId: string, date: string, optionId: string, on: boolean): Promise<void> {
   return setDoc(periodDoc(uid, periodId), {
     checks: { [date]: { [optionId]: on ? true : deleteField() } },

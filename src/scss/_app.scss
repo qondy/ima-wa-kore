@@ -1146,3 +1146,30 @@ details.held-box {
     margin-bottom: $spacing-sm;
   }
 }
+
+// 期間の途中で集中の枠が空いているときの案内
+.room-note {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-top: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  background: $color-surface;
+  border: 1px dashed $color-primary;
+  border-radius: $radius-lg;
+
+  &__text {
+    flex: 1;
+    font-size: $font-size-sm;
+    line-height: 1.6;
+  }
+
+  .btn {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 420px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
