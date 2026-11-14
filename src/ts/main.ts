@@ -1119,7 +1119,7 @@ function renderStartModal(): void {
 
   const n = state.pickIds.length;
   btnStartSave.disabled = n === 0 || state.pending.has('start');
-  btnStartSave.textContent = n ? `${n}つに集中して始める` : '今日から集中する';
+  btnStartSave.textContent = n ? `${n}つに集中して始める` : '集中することを選んでください';
 }
 
 btnStartSave.addEventListener('click', () => {
@@ -1181,7 +1181,7 @@ function renderReviewModal(): void {
   reviewItems.innerHTML = '';
   p.focus.forEach((f) => {
     const item = document.createElement('div');
-    item.className = 'review-item';
+    item.className = `review-item${state.reviewDecisions[f.id] ? ' is-decided' : ''}`;
     item.appendChild(textEl('p', 'review-item__title', focusTitle(f)));
     item.appendChild(textEl('p', 'review-item__meta', `手をつけた日 ${doneDays(p, f.id)} / ${elapsedDays(p, today)}日`));
     const opts = document.createElement('div');
@@ -1198,14 +1198,19 @@ function renderReviewModal(): void {
       b.addEventListener('click', () => {
         state.reviewDecisions[f.id] = d;
         renderReviewModal();
+        // 次にまだ決めていないもの（全部決めたら記録ボタン）へ移動する
+        const next = reviewItems.querySelector('.review-item:not(.is-decided)') ?? btnReviewSave;
+        next.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
       opts.appendChild(b);
     });
     item.appendChild(opts);
     reviewItems.appendChild(item);
   });
-  const allSet = p.focus.every((f) => state.reviewDecisions[f.id]);
-  btnReviewSave.disabled = !allSet || state.pending.has(`review:${p.id}`);
+  const remaining = p.focus.filter((f) => !state.reviewDecisions[f.id]).length;
+  btnReviewSave.disabled = remaining > 0 || state.pending.has(`review:${p.id}`);
+  // すべてに「続ける・入れ替える・やめる」を決めると記録できる。あといくつかを見せて迷わないようにする
+  btnReviewSave.textContent = remaining > 0 ? `あと${remaining}つ選ぶと記録できます` : '見直しを記録する';
 }
 
 btnReviewSave.addEventListener('click', () => {
@@ -1229,7 +1234,10 @@ btnReviewSave.addEventListener('click', () => {
   }).then((ok) => {
     if (!ok) return;
     // そのまま次の期間を選べるようにする（「続ける」を選んだものは最初から選択しておく）
-    window.setTimeout(() => openStartModal(continueIds, '見直しおつかれさまでした。次の期間は何に集中しますか？「続ける」にしたものは選択済みです。'), 300);
+    const lead = continueIds.length
+      ? '見直しおつかれさまでした。次の期間は何に集中しますか？「続ける」にしたものは選択済みです。'
+      : `見直しおつかれさまでした。次の期間に集中することを、1〜${MAX_FOCUS}つ選んでください。いま決めきれないときは「キャンセル」で閉じて、あとから「いま」タブで選べます。`;
+    window.setTimeout(() => openStartModal(continueIds, lead), 300);
   });
 });
 

@@ -260,9 +260,19 @@
 }
 
 // ===== Dialog / Modal =====
+// モーダル表示中は後ろの画面を固定する（top は JS で現在のスクロール位置を入れる）
+body.is-scroll-locked {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
 .dialog-overlay {
   position: fixed;
   inset: 0;
+  overscroll-behavior: contain;
   z-index: 2000;
   background: rgba(30, 27, 46, 0.5);
   display: none;
@@ -310,7 +320,10 @@
   max-width: 480px;
   width: 100%;
   max-height: 85vh;
+  max-height: 85dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 
   &__head {

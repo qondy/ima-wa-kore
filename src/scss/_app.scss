@@ -909,20 +909,44 @@
     margin-top: 2px;
   }
 
+  // 選んだものがひと目でわかるように、太い枠・色付きの文字・チェックで示す
+  &.is-active {
+    border-width: 2px;
+    padding: 7px 3px;
+
+    .decision-btn__label::before {
+      content: '✓ ';
+    }
+  }
+
   &--continue.is-active {
     border-color: $color-continue;
     background: $color-continue-soft;
+
+    .decision-btn__label { color: $color-continue; }
   }
 
   &--swap.is-active {
     border-color: $color-swap;
     background: $color-swap-soft;
+
+    .decision-btn__label { color: $color-swap; }
   }
 
   &--stop.is-active {
-    border-color: $color-stop;
-    background: $color-stop-soft;
+    border-color: #3d4647;
+    background: #dfe3e3;
+
+    .decision-btn__label { color: #3d4647; }
   }
+}
+
+// 選び終わった項目は控えめに（まだのものが目に入るように）
+.review-item.is-decided .review-item__title::after {
+  content: '　決めました';
+  font-size: $font-size-xs;
+  font-weight: 700;
+  color: $color-primary-ink;
 }
 
 .decision-pill {
