@@ -126,14 +126,29 @@
           <div class="stat-card"><div class="stat-card__value" id="stat-focus">0</div><div class="stat-card__label">集中したこと</div></div>
           <div class="stat-card"><div class="stat-card__value" id="stat-rate">-</div><div class="stat-card__label">平均の手をつけた率</div></div>
         </div>
-        <div id="history-list" class="card-list"></div>
+        <div id="history-view" class="segmented segmented--2" role="radiogroup" aria-label="表示の切り替え"></div>
 
-        <div class="section section--sub">
-          <div class="section__head">
-            <h3 class="section__title">空きスロットの記録</h3>
-            <p class="section__desc">予定を入れなかった枠に、どんな偶然が入ってきたか。</p>
+        <div id="journey-view" class="hidden">
+          <div id="journey-compare"></div>
+          <div class="section section--sub">
+            <div class="section__head">
+              <h3 class="section__title">これまで集中したこと</h3>
+              <p class="section__desc">はじめに集中したものから順に並んでいます。</p>
+            </div>
+            <div id="journey-list" class="journey-list"></div>
           </div>
-          <div id="slot-history" class="card-list"></div>
+        </div>
+
+        <div id="period-view">
+          <div id="history-list" class="card-list"></div>
+
+          <div class="section section--sub">
+            <div class="section__head">
+              <h3 class="section__title">空きスロットの記録</h3>
+              <p class="section__desc">予定を入れなかった枠に、どんな偶然が入ってきたか。</p>
+            </div>
+            <div id="slot-history" class="card-list"></div>
+          </div>
         </div>
       </section>
 

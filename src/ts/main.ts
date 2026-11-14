@@ -15,6 +15,7 @@ import {
 import { periodEnd, dayNumber, isOver, periodDates, doneDays, elapsedDays, rate, periodRate, shortLabel } from './stats';
 import { FocusOption, Period, Decision, Scores, OptionStatus, BlankSlot, SlotTime, SlotResult } from './types';
 import { initClickTracking, track } from './analytics';
+import { buildJourney, chronological, daysBetween, JourneyItem } from './journey';
 
 initClickTracking();
 
@@ -44,6 +45,11 @@ const droppedList = $('dropped-list');
 const countHold = $('count-hold');
 const countDropped = $('count-dropped');
 const historyList = $('history-list');
+const historyView = $('history-view');
+const journeyView = $('journey-view');
+const periodView = $('period-view');
+const journeyCompare = $('journey-compare');
+const journeyList = $('journey-list');
 const slotHistory = $('slot-history');
 const resetSuggest = $('reset-suggest');
 const resetSuggestText = $('reset-suggest-text');
@@ -117,6 +123,7 @@ const btnFeedbackSend = $<HTMLButtonElement>('btn-feedback-send');
 // ============================================================
 type Tab = 'now' | 'pool' | 'history';
 type Sort = 'score' | 'new';
+type HistoryView = 'periods' | 'journey';
 
 interface State {
   uid: string | null;
@@ -127,6 +134,7 @@ interface State {
   periodsLoaded: boolean;
   tab: Tab;
   sort: Sort;
+  historyView: HistoryView;
   editingId: string | null;
   formCategory: string;
   formScores: Scores;
@@ -156,6 +164,7 @@ const state: State = {
   periodsLoaded: false,
   tab: 'now',
   sort: 'score',
+  historyView: 'periods',
   editingId: null,
   formCategory: CATEGORIES[0],
   formScores: defaultScores(),
@@ -894,6 +903,111 @@ function renderHistory(): void {
   });
 }
 
+// ============================================================
+// これまで集中したこと（始めた頃といまを比べる）
+// ============================================================
+function renderHistoryView(): void {
+  historyView.innerHTML = '';
+  ([['periods', '期間ごと'], ['journey', '集中したこと一覧']] as [HistoryView, string][]).forEach(([key, label]) => {
+    const on = state.historyView === key;
+    const b = button(label, `segmented__btn${on ? ' is-active' : ''}`, () => {
+      if (state.historyView === key) return;
+      state.historyView = key;
+      if (key === 'journey') track('journey_view');
+      renderHistoryView();
+    });
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(on));
+    historyView.appendChild(b);
+  });
+  periodView.classList.toggle('hidden', state.historyView !== 'periods');
+  journeyView.classList.toggle('hidden', state.historyView !== 'journey');
+}
+
+/** 期間ひとつ分の「そのときの自分」 */
+function snapshotCol(label: string, p: Period, today: string): HTMLElement {
+  const col = document.createElement('div');
+  col.className = 'compare__col';
+  col.appendChild(textEl('p', 'compare__label', label));
+  col.appendChild(textEl('p', 'compare__range', `${shortLabel(p.startDate)} 〜 ${shortLabel(periodEnd(p))}`));
+  const chips = document.createElement('div');
+  chips.className = 'compare__chips';
+  p.focus.forEach((f) => chips.appendChild(textEl('span', 'held-box__item', focusTitle(f))));
+  col.appendChild(chips);
+  col.appendChild(textEl('p', 'compare__rate', `手をつけた率 ${periodRate(p, today)}%${p.status === 'active' ? '（進行中）' : ''}`));
+  if (p.note) col.appendChild(textEl('p', 'item-card__memo', p.note));
+  return col;
+}
+
+function journeyStatus(j: JourneyItem): [string, string] {
+  if (j.active) return ['集中中', 'status-pill'];
+  if (j.lastDecision) return [DECISION_LABEL[j.lastDecision], `decision-pill decision-pill--${j.lastDecision}`];
+  return ['見直し前', 'status-pill'];
+}
+
+function renderJourney(): void {
+  const today = todayKey();
+  journeyCompare.innerHTML = '';
+  journeyList.innerHTML = '';
+  if (!state.periodsLoaded) {
+    journeyList.appendChild(emptyState('読み込み中…'));
+    return;
+  }
+  const periods = chronological(state.periods.filter((p) => p.focus.length));
+  if (!periods.length) {
+    journeyList.appendChild(emptyState('まだ集中したことはありません。「いま」から集中することを選ぶと、ここに積み重なっていきます。'));
+    return;
+  }
+
+  // 始めたばかりの頃と、いま
+  const first = periods[0];
+  const latest = periods[periods.length - 1];
+  const box = document.createElement('div');
+  box.className = 'compare';
+  if (first === latest) {
+    box.appendChild(snapshotCol('始めたばかりの自分', first, today));
+    box.appendChild(textEl('p', 'compare__note', '次の期間に進むと、ここで始めた頃といまの自分を見比べられます。'));
+  } else {
+    const days = daysBetween(first.startDate, today);
+    box.appendChild(textEl('p', 'compare__lead', `始めてから${days}日、${periods.length}回の集中期間を重ねました`));
+    const cols = document.createElement('div');
+    cols.className = 'compare__cols';
+    cols.append(snapshotCol('始めたばかりの自分', first, today), snapshotCol(latest.status === 'active' ? 'いまの自分' : '最近の自分', latest, today));
+    box.appendChild(cols);
+    const firstIds = new Set(first.focus.map((f) => f.id));
+    const kept = latest.focus.filter((f) => firstIds.has(f.id)).map(focusTitle);
+    const diff = periodRate(latest, today) - periodRate(first, today);
+    const notes: string[] = [];
+    notes.push(kept.length ? `はじめから続いていること：${kept.join('、')}` : 'はじめの頃とは、集中することがすっかり入れ替わりました');
+    if (latest.status === 'reviewed' || dayNumber(latest, today) >= 3) {
+      notes.push(diff === 0 ? '手をつけた率は、はじめの頃と同じです' : `手をつけた率は、はじめの頃より${Math.abs(diff)}ポイント${diff > 0 ? '上がりました' : '下がりました'}`);
+    }
+    notes.forEach((n) => box.appendChild(textEl('p', 'compare__note', n)));
+  }
+  journeyCompare.appendChild(box);
+
+  // これまで集中したこと（初めて集中した順）
+  const items = buildJourney(periods, today);
+  items.forEach((j, i) => {
+    const row = document.createElement('div');
+    row.className = 'journey-item';
+    row.appendChild(textEl('span', 'journey-item__no', String(i + 1)));
+    const body = document.createElement('div');
+    body.className = 'journey-item__body';
+    const head = document.createElement('div');
+    head.className = 'journey-item__head';
+    head.appendChild(textEl('span', 'journey-item__title', focusTitle({ id: j.id, title: j.title })));
+    const [label, cls] = journeyStatus(j);
+    head.appendChild(textEl('span', cls, label));
+    body.appendChild(head);
+    const range = j.firstStart === j.lastEnd ? shortLabel(j.firstStart) : `${shortLabel(j.firstStart)} 〜 ${shortLabel(j.lastEnd)}`;
+    const pct = j.days ? Math.round((j.done / j.days) * 100) : 0;
+    body.appendChild(textEl('p', 'journey-item__meta', `${range}・${j.periods}期間・手をつけた日 ${j.done}日（${pct}%）`));
+    row.appendChild(body);
+    journeyList.appendChild(row);
+  });
+}
+
 function renderSlotHistory(): void {
   const ws = weekStartOf(todayKey());
   const past = state.slots.filter((x) => x.weekStart < ws);
@@ -941,6 +1055,8 @@ function renderAll(): void {
   renderPool();
   renderHistory();
   renderSlotHistory();
+  renderHistoryView();
+  renderJourney();
   if (startOverlay.classList.contains('is-open')) renderStartModal();
   if (slotOverlay.classList.contains('is-open')) renderSlotModal();
   if (slotReviewOverlay.classList.contains('is-open')) renderSlotReview();

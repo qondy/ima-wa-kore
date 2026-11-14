@@ -1197,3 +1197,118 @@ details.held-box {
     align-items: stretch;
   }
 }
+
+// ===== これまで集中したこと（始めた頃といまの比較） =====
+.compare {
+  padding: $spacing-md;
+  margin-top: $spacing-md;
+  background: $color-surface;
+  border-radius: $radius-lg;
+  box-shadow: 0 2px 12px rgba($color-primary, 0.08);
+
+  &__lead {
+    font-weight: 800;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-sm;
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__col {
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $color-border;
+    border-radius: $radius-md;
+
+    &:last-child:not(:first-child) {
+      border-color: $color-primary;
+    }
+  }
+
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    color: $color-primary-ink;
+  }
+
+  &__range {
+    font-size: $font-size-xs;
+    color: $color-text-muted;
+    margin-bottom: 6px;
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  &__rate {
+    font-size: $font-size-sm;
+    font-weight: 700;
+  }
+
+  &__note {
+    margin-top: $spacing-sm;
+    font-size: $font-size-sm;
+    line-height: 1.6;
+  }
+}
+
+.journey-list {
+  display: grid;
+  gap: $spacing-xs;
+}
+
+.journey-item {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: flex-start;
+  padding: $spacing-sm $spacing-md;
+  background: $color-surface;
+  border-radius: $radius-md;
+  border: 1px solid $color-border;
+
+  &__no {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-size: $font-size-xs;
+    font-weight: 800;
+    color: $color-primary-ink;
+    background: $color-primary-soft;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__title {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  &__meta {
+    margin-top: 2px;
+    font-size: $font-size-xs;
+    color: $color-text-muted;
+  }
+}
